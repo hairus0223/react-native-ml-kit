@@ -1,30 +1,30 @@
 {
-  "name": "@react-native-ml-kit/barcode-scanning",
-  "title": "React Native ML Kit Barcode Scanning",
-  "version": "1.4.1",
-  "description": "React Native On-Device Barcode Scanning w/ Google ML Kit",
+  "name": "@react-native-ml-kit/face-detection",
+  "title": "React Native MLKit Face Detection",
+  "version": "1.3.3",
+  "description": "React Native On-Device Face Detection w/ Google ML Kit",
   "main": "index.ts",
   "files": [
     "README.md",
     "android",
     "index.ts",
-    "RNMLKitBarcodeScanning.podspec",
-    "ios"
+    "ios",
+    "RNMLKitFaceDetection.podspec"
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/a7med-mahmoud/react-native-ml-kit.git",
-    "baseUrl": "https://github.com/a7med-mahmoud/react-native-ml-kit"
+    "url": "git+https://github.com/hairus0223/react-native-ml-kit.git",
+    "baseUrl": "https://github.com/hairus0223/react-native-ml-kit"
   },
   "keywords": [
     "react-native"
   ],
   "author": {
-    "name": "JT Wright",
-    "email": "jacob.t.wright@protonmail.com"
+    "name": "Hairus",
+    "email": "khairus0223@gmail.com"
   },
   "license": "MIT",
   "licenseFilename": "LICENSE",

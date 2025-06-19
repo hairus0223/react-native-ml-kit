@@ -1,17 +1,15 @@
 #import "FaceDetection.h"
-
-@import MLKitVision.MLKVisionImage;
-@import MLKitVision.MLKVisionPoint;
+@import MLKitVision;
 @import MLKitFaceDetection;
 
 @implementation FaceDetection
 
 RCT_EXPORT_MODULE()
 
-- (MLKFaceDetectorOptions*)getOptions: (NSDictionary*)dict {
+- (MLKFaceDetectorOptions*)getOptions:(NSDictionary*)dict {
     MLKFaceDetectorOptions* options = [[MLKFaceDetectorOptions alloc] init];
     if ([dict[@"performanceMode"] isEqual:@"accurate"]) {
-        options.performanceMode= MLKFaceDetectorPerformanceModeAccurate;
+        options.performanceMode = MLKFaceDetectorPerformanceModeAccurate;
     }
     if ([dict[@"landmarkMode"] isEqual:@"all"]) {
         options.landmarkMode = MLKFaceDetectorLandmarkModeAll;
@@ -22,15 +20,14 @@ RCT_EXPORT_MODULE()
     if ([dict[@"classificationMode"] isEqual:@"all"]) {
         options.classificationMode = MLKFaceDetectorClassificationModeAll;
     }
-    if ([dict[@"minFaceSize"] doubleValue] > 0
-        &&  [dict[@"minFaceSize"] doubleValue] <= 1) {
+    if ([dict[@"minFaceSize"] doubleValue] > 0 && [dict[@"minFaceSize"] doubleValue] <= 1) {
         options.minFaceSize = [dict[@"minFaceSize"] doubleValue];
     }
     options.trackingEnabled = [dict[@"trackingEnabled"] boolValue];
     return options;
 }
 
-- (NSDictionary*)frameToDict: (CGRect)frame {
+- (NSDictionary*)frameToDict:(CGRect)frame {
     return @{
         @"width": @(frame.size.width),
         @"height": @(frame.size.height),
@@ -39,14 +36,20 @@ RCT_EXPORT_MODULE()
     };
 }
 
-- (NSDictionary*)pointToDict: (MLKVisionPoint*)point {
+- (NSDictionary*)pointToDict:(MLKVisionPoint*)point {
     return @{
         @"x": @(point.x),
-        @"y": @(point.y),
+        @"y": @(point.y)
     };
 }
 
-- (NSDictionary*)contourToDict: (MLKFaceContour*)contour {
+- (NSDictionary*)landmarkToDict:(MLKFaceLandmark*)landmark {
+    return @{
+        @"position": [self pointToDict:landmark.position]
+    };
+}
+
+- (NSDictionary*)contourToDict:(MLKFaceContour*)contour {
     NSMutableArray *points = [NSMutableArray array];
     for (MLKVisionPoint *point in contour.points) {
         [points addObject:[self pointToDict:point]];
@@ -54,205 +57,130 @@ RCT_EXPORT_MODULE()
     return @{ @"points": points };
 }
 
-- (NSDictionary*)landmarkToDict: (MLKFaceLandmark*)landmark {
-    return @{
-        @"position": [self pointToDict: landmark.position]
-    };
-}
-
-- (NSDictionary*)faceToDict: (MLKFace*)face
-                withOptions: (MLKFaceDetectorOptions*)options
-{
+- (NSDictionary*)faceToDict:(MLKFace*)face withOptions:(MLKFaceDetectorOptions*)options {
     NSMutableDictionary* dict = [NSMutableDictionary dictionary];
+
     [dict setObject:[self frameToDict:face.frame] forKey:@"frame"];
+    
     if (face.hasHeadEulerAngleX) {
-        [dict setObject:@(face.headEulerAngleX) forKey:@"rotationX"];
+        dict[@"rotationX"] = @(face.headEulerAngleX);
     }
     if (face.hasHeadEulerAngleY) {
-        [dict setObject:@(face.headEulerAngleY) forKey:@"rotationY"];
+        dict[@"rotationY"] = @(face.headEulerAngleY);
     }
     if (face.hasHeadEulerAngleZ) {
-        [dict setObject:@(face.headEulerAngleZ) forKey:@"rotationZ"];
+        dict[@"rotationZ"] = @(face.headEulerAngleZ);
     }
-    
-    // If landmark detection was enabled (mouth, ears, eyes, cheeks, and nose):
+
     if (options.landmarkMode == MLKFaceDetectorLandmarkModeAll) {
         NSMutableDictionary *landmarks = [NSMutableDictionary dictionary];
+        NSArray *landmarkTypes = @[
+            @(MLKFaceLandmarkTypeLeftEar), @(MLKFaceLandmarkTypeRightEar),
+            @(MLKFaceLandmarkTypeLeftEye), @(MLKFaceLandmarkTypeRightEye),
+            @(MLKFaceLandmarkTypeNoseBase),
+            @(MLKFaceLandmarkTypeLeftCheek), @(MLKFaceLandmarkTypeRightCheek),
+            @(MLKFaceLandmarkTypeMouthLeft), @(MLKFaceLandmarkTypeMouthRight),
+            @(MLKFaceLandmarkTypeMouthBottom)
+        ];
+        NSArray *landmarkKeys = @[
+            @"leftEar", @"rightEar",
+            @"leftEye", @"rightEye",
+            @"noseBase",
+            @"leftCheek", @"rightCheek",
+            @"mouthLeft", @"mouthRight",
+            @"mouthBottom"
+        ];
 
-        MLKFaceLandmark *leftEar = [face landmarkOfType:MLKFaceLandmarkTypeLeftEar];
-        if (leftEar != nil) {
-            [landmarks setObject:[self landmarkToDict:leftEar] forKey:@"leftEar"];
+        for (int i = 0; i < landmarkTypes.count; i++) {
+            MLKFaceLandmark *landmark = [face landmarkOfType:[landmarkTypes[i] intValue]];
+            if (landmark != nil) {
+                landmarks[landmarkKeys[i]] = [self landmarkToDict:landmark];
+            }
         }
-        
-        MLKFaceLandmark *rightEar = [face landmarkOfType:MLKFaceLandmarkTypeRightEar];
-        if (rightEar != nil) {
-            [landmarks setObject:[self landmarkToDict:rightEar] forKey:@"rightEar"];
-        }
-        
-        MLKFaceLandmark *leftEye = [face landmarkOfType:MLKFaceLandmarkTypeLeftEye];
-        if (leftEye != nil) {
-            [landmarks setObject:[self landmarkToDict:leftEye] forKey:@"leftEye"];
-        }
-        
-        MLKFaceLandmark *rightEye = [face landmarkOfType:MLKFaceLandmarkTypeRightEye];
-        if (rightEye != nil) {
-            [landmarks setObject:[self landmarkToDict:rightEye] forKey:@"rightEye"];
-        }
-        
-        MLKFaceLandmark *noseBase = [face landmarkOfType:MLKFaceLandmarkTypeNoseBase];
-        if (noseBase != nil) {
-            [landmarks setObject:[self landmarkToDict:noseBase] forKey:@"noseBase"];
-        }
-        
-        MLKFaceLandmark *leftCheek = [face landmarkOfType:MLKFaceLandmarkTypeLeftCheek];
-        if (leftCheek != nil) {
-            [landmarks setObject:[self landmarkToDict:leftCheek] forKey:@"leftCheek"];
-        }
-        
-        MLKFaceLandmark *rightCheek = [face landmarkOfType:MLKFaceLandmarkTypeRightCheek];
-        if (rightCheek != nil) {
-            [landmarks setObject:[self landmarkToDict:rightCheek] forKey:@"rightCheek"];
-        }
-        
-        MLKFaceLandmark *mouthLeft = [face landmarkOfType:MLKFaceLandmarkTypeMouthLeft];
-        if (mouthLeft != nil) {
-            [landmarks setObject:[self landmarkToDict:mouthLeft] forKey:@"mouthLeft"];
-        }
-        
-        MLKFaceLandmark *mouthRight = [face landmarkOfType:MLKFaceLandmarkTypeMouthRight];
-        if (mouthRight != nil) {
-            [landmarks setObject:[self landmarkToDict:mouthRight] forKey:@"mouthRight"];
-        }
-        
-        MLKFaceLandmark *mouthBottom = [face landmarkOfType:MLKFaceLandmarkTypeMouthBottom];
-        if (mouthBottom != nil) {
-            [landmarks setObject:[self landmarkToDict:mouthBottom] forKey:@"mouthBottom"];
-        }
-        
-        [dict setObject:landmarks forKey:@"landmarks"];
+
+        dict[@"landmarks"] = landmarks;
     }
-    
-    // If contour detection was enabled:
+
     if (options.contourMode == MLKFaceDetectorContourModeAll) {
         NSMutableDictionary *contours = [NSMutableDictionary dictionary];
+        NSArray *contourTypes = @[
+            @(MLKFaceContourTypeFace), @(MLKFaceContourTypeLeftEye), @(MLKFaceContourTypeRightEye),
+            @(MLKFaceContourTypeLeftCheek), @(MLKFaceContourTypeRightCheek),
+            @(MLKFaceContourTypeNoseBottom), @(MLKFaceContourTypeNoseBridge),
+            @(MLKFaceContourTypeLeftEyebrowTop), @(MLKFaceContourTypeLeftEyebrowBottom),
+            @(MLKFaceContourTypeRightEyebrowTop), @(MLKFaceContourTypeRightEyebrowBottom),
+            @(MLKFaceContourTypeUpperLipTop), @(MLKFaceContourTypeUpperLipBottom),
+            @(MLKFaceContourTypeLowerLipTop), @(MLKFaceContourTypeLowerLipBottom)
+        ];
+        NSArray *contourKeys = @[
+            @"face", @"leftEye", @"rightEye",
+            @"leftCheek", @"rightCheek",
+            @"noseBottom", @"noseBridge",
+            @"leftEyebrowTop", @"leftEyebrowBottom",
+            @"rightEyebrowTop", @"rightEyebrowBottom",
+            @"upperLipTop", @"upperLipBottom",
+            @"lowerLipTop", @"lowerLipBottom"
+        ];
 
-        MLKFaceContour *faceContour = [face contourOfType:MLKFaceContourTypeFace];
-        if (faceContour != nil) {
-            [contours setObject:[self contourToDict:faceContour] forKey:@"face"];
-        }
-
-        MLKFaceContour *leftEye = [face contourOfType:MLKFaceContourTypeLeftEye];
-        if (leftEye != nil) {
-            [contours setObject:[self contourToDict:leftEye] forKey:@"leftEye"];
-        }
-        
-        MLKFaceContour *rightEye = [face contourOfType:MLKFaceContourTypeRightEye];
-        if (rightEye != nil) {
-            [contours setObject:[self contourToDict:rightEye] forKey:@"rightEye"];
-        }
-        
-        MLKFaceContour *leftCheek = [face contourOfType:MLKFaceContourTypeLeftCheek];
-        if (leftCheek != nil) {
-            [contours setObject:[self contourToDict:leftCheek] forKey:@"leftCheek"];
-        }
-        
-        MLKFaceContour *rightCheek = [face contourOfType:MLKFaceContourTypeRightCheek];
-        if (rightCheek != nil) {
-            [contours setObject:[self contourToDict:rightCheek] forKey:@"rightCheek"];
-        }
-        
-        MLKFaceContour *noseBottom = [face contourOfType:MLKFaceContourTypeNoseBottom];
-        if (noseBottom != nil) {
-            [contours setObject:[self contourToDict:noseBottom] forKey:@"noseBottom"];
-        }
-        
-        MLKFaceContour *noseBridge = [face contourOfType:MLKFaceContourTypeNoseBridge];
-        if (noseBridge != nil) {
-            [contours setObject:[self contourToDict:noseBridge] forKey:@"noseBridge"];
-        }
-        
-        MLKFaceContour *leftEyebrowTop = [face contourOfType:MLKFaceContourTypeLeftEyebrowTop];
-        if (leftEyebrowTop != nil) {
-            [contours setObject:[self contourToDict:leftEyebrowTop] forKey:@"leftEyebrowTop"];
-        }
-        
-        MLKFaceContour *rightEyebrowTop = [face contourOfType:MLKFaceContourTypeRightEyebrowTop];
-        if (rightEyebrowTop != nil) {
-            [contours setObject:[self contourToDict:rightEyebrowTop] forKey:@"rightEyebrowTop"];
-        }
-        
-        MLKFaceContour *leftEyebrowBottom = [face contourOfType:MLKFaceContourTypeLeftEyebrowBottom];
-        if (leftEyebrowBottom != nil) {
-            [contours setObject:[self contourToDict:leftEyebrowBottom] forKey:@"leftEyebrowBottom"];
-        }
-        
-        MLKFaceContour *rightEyebrowBottom = [face contourOfType:MLKFaceContourTypeRightEyebrowBottom];
-        if (rightEyebrowBottom != nil) {
-            [contours setObject:[self contourToDict:rightEyebrowBottom] forKey:@"rightEyebrowBottom"];
+        for (int i = 0; i < contourTypes.count; i++) {
+            MLKFaceContour *contour = [face contourOfType:[contourTypes[i] intValue]];
+            if (contour != nil) {
+                contours[contourKeys[i]] = [self contourToDict:contour];
+            }
         }
 
-        MLKFaceContour *upperLipTop = [face contourOfType:MLKFaceContourTypeUpperLipTop];
-        if (upperLipTop != nil) {
-            [contours setObject:[self contourToDict:upperLipTop] forKey:@"upperLipTop"];
-        }
-        
-        MLKFaceContour *lowerLipTop = [face contourOfType:MLKFaceContourTypeLowerLipTop];
-        if (lowerLipTop != nil) {
-            [contours setObject:[self contourToDict:lowerLipTop] forKey:@"lowerLipTop"];
-        }
-        
-        MLKFaceContour *upperLipBottom = [face contourOfType:MLKFaceContourTypeUpperLipBottom];
-        if (upperLipBottom != nil) {
-            [contours setObject:[self contourToDict:upperLipBottom] forKey:@"upperLipBottom"];
-        }
-        
-        MLKFaceContour *lowerLipBottom = [face contourOfType:MLKFaceContourTypeLowerLipBottom];
-        if (lowerLipBottom != nil) {
-            [contours setObject:[self contourToDict:lowerLipBottom] forKey:@"lowerLipBottom"];
-        }
-        
-        [dict setObject:contours forKey:@"contours"];
+        dict[@"contours"] = contours;
     }
-    
-    // If classification was enabled:
+
     if (face.hasSmilingProbability) {
-        [dict setObject:@(face.smilingProbability) forKey:@"smilingProbability"];
+        dict[@"smilingProbability"] = @(face.smilingProbability);
     }
-    
     if (face.hasLeftEyeOpenProbability) {
-        [dict setObject:@(face.leftEyeOpenProbability) forKey:@"leftEyeOpenProbability"];
+        dict[@"leftEyeOpenProbability"] = @(face.leftEyeOpenProbability);
     }
-    
     if (face.hasRightEyeOpenProbability) {
-        [dict setObject:@(face.rightEyeOpenProbability) forKey:@"rightEyeOpenProbability"];
+        dict[@"rightEyeOpenProbability"] = @(face.rightEyeOpenProbability);
     }
-    
-    // If face tracking was enabled:
     if (face.hasTrackingID) {
-        [dict setObject:@(face.trackingID) forKey:@"trackingID"];
+        dict[@"trackingID"] = @(face.trackingID);
     }
+
     return dict;
 }
 
-RCT_EXPORT_METHOD(detect: (nonnull NSString*)url
-                  withOptions: (NSDictionary*)optionsDict
+RCT_EXPORT_METHOD(detect:(NSString*)url
+                  withOptions:(NSDictionary*)optionsDict
                   resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 {
     NSURL *_url = [NSURL URLWithString:url];
     NSData *imageData = [NSData dataWithContentsOfURL:_url];
     UIImage *image = [UIImage imageWithData:imageData];
+
+    if (!image) {
+        reject(@"no_image", @"Unable to load image", nil);
+        return;
+    }
+
     MLKVisionImage *visionImage = [[MLKVisionImage alloc] initWithImage:image];
+    visionImage.orientation = image.imageOrientation;
+
     MLKFaceDetectorOptions *options = [self getOptions:optionsDict];
     MLKFaceDetector *faceDetector = [MLKFaceDetector faceDetectorWithOptions:options];
+
     [faceDetector processImage:visionImage
-                    completion:^(NSArray<MLKFace *> *faces,
-                                 NSError *error) {
+                    completion:^(NSArray<MLKFace *> *faces, NSError *error) {
         if (error != nil) {
             reject(@"Face Detection", @"Face detection failed", error);
+            return;
         }
-        
-        NSMutableArray* result = [NSMutableArray array];
+
+        if (faces == nil) {
+            resolve(@[]);
+            return;
+        }
+
+        NSMutableArray *result = [NSMutableArray array];
         for (MLKFace *face in faces) {
             [result addObject:[self faceToDict:face withOptions:options]];
         }
